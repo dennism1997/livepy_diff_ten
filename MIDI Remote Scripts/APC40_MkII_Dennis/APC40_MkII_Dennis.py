@@ -1,22 +1,22 @@
 from __future__ import absolute_import, print_function, unicode_literals
+
 from functools import partial
+
+from _APC.APC import APC
+from _APC.ControlElementUtils import make_button, make_encoder, make_slider, make_ring_encoder, make_pedal_button
+from _APC.DetailViewCntrlComponent import DetailViewCntrlComponent
+from _APC.DeviceBankButtonElement import DeviceBankButtonElement
+from _APC.DeviceComponent import DeviceComponent
+from _APC.SessionComponent import SessionComponent
+from _APC.SkinDefault import make_rgb_skin, make_default_skin, make_stop_button_skin, make_crossfade_button_skin
 from _Framework.ButtonMatrixElement import ButtonMatrixElement
-from _Framework.ComboElement import ComboElement, DoublePressElement, MultiElement
+from _Framework.ComboElement import ComboElement, DoublePressElement
 from _Framework.ControlSurface import OptimizedControlSurface
 from _Framework.Layer import Layer
 from _Framework.ModesComponent import ModesComponent, ImmediateBehaviour, DelayMode, AddLayerMode
 from _Framework.Resource import PrioritizedResource
-from _Framework.SessionRecordingComponent import SessionRecordingComponent
 from _Framework.SessionZoomingComponent import SessionZoomingComponent
-from _Framework.ClipCreator import ClipCreator
 from _Framework.Util import recursive_map
-from _APC.APC import APC
-from _APC.DeviceComponent import DeviceComponent
-from _APC.DeviceBankButtonElement import DeviceBankButtonElement
-from _APC.DetailViewCntrlComponent import DetailViewCntrlComponent
-from _APC.SessionComponent import SessionComponent
-from _APC.ControlElementUtils import make_button, make_encoder, make_slider, make_ring_encoder, make_pedal_button
-from _APC.SkinDefault import make_rgb_skin, make_default_skin, make_stop_button_skin, make_crossfade_button_skin
 from . import Colors
 from .BankToggleComponent import BankToggleComponent
 from .LooperComponent import LooperComponent
@@ -38,6 +38,7 @@ class APC40_MkII_Dennis(APC, OptimizedControlSurface):
         self._crossfade_button_skin = make_crossfade_button_skin()
         with self.component_guard():
             self._create_controls()
+            self._create_looper()
             self._create_bank_toggle()
             self._create_session()
             self._create_mixer()
@@ -45,9 +46,8 @@ class APC40_MkII_Dennis(APC, OptimizedControlSurface):
             self._create_device()
             self._create_view_control()
             self._create_quantization_selection()
-            self._create_recording()
+            # self._create_recording()
             self._session.set_mixer(self._mixer)
-            self._create_looper()
         self.set_highlighting_session_component(self._session)
         self.set_device_component(self._device)
 
@@ -55,12 +55,12 @@ class APC40_MkII_Dennis(APC, OptimizedControlSurface):
         return ComboElement(button, modifiers=[self._shift_button])
 
     def _create_looper(self):
-        self.looper = LooperComponent(self)
-        self.looper.set_shift_button(self._shift_button) # currently unused
-        self.looper.set_loop_on_button(self._loop_on_button)
-        self.looper.set_loop_off_button(self._loop_off_button)
-        self.looper.set_loop_double_button(self._loop_double_button)
-        self.looper.set_loop_halve_button(self._loop_halve_button)
+        self.looper = LooperComponent(parent=self, name=u'Looper')
+        self.looper.set_shift_button(self._shift_button)  # currently unused
+        self.looper.set_loop_on_button(self._loop_in_button)
+        self.looper.set_loop_off_button(self._loop_out_button)
+        self.looper.set_loop_double_button(self._nudge_up_button)
+        self.looper.set_loop_halve_button(self._nudge_down_button)
 
     def _create_controls(self):
         make_on_off_button = partial(make_button, skin=self._default_skin)
@@ -121,8 +121,8 @@ class APC40_MkII_Dennis(APC, OptimizedControlSurface):
             rows=[[ComboElement(button, modifiers=[self._shift_button]) for button in self._raw_select_buttons]])
         self._metronome_button = make_on_off_button(0, 90, name=u'Metronome_Button')
         self._play_button = make_on_off_button(0, 91, name=u'Play_Button')
-        self._record_button = make_on_off_button(0, 93, name=u'Record_Button')
-        self._session_record_button = make_on_off_button(0, 102, name=u'Session_Record_Button')
+        # self._record_button = make_on_off_button(0, 93, name=u'Record_Button')
+        # self._session_record_button = make_on_off_button(0, 102, name=u'Session_Record_Button')
         self._nudge_down_button = make_button(0, 100, name=u'Nudge_Down_Button')
         self._nudge_up_button = make_button(0, 101, name=u'Nudge_Up_Button')
         self._tap_tempo_button = make_button(0, 99, name=u'Tap_Tempo_Button')
@@ -153,6 +153,9 @@ class APC40_MkII_Dennis(APC, OptimizedControlSurface):
         self._shifted_matrix = ButtonMatrixElement(rows=recursive_map(self._with_shift, self._matrix_rows_raw))
         self._shifted_scene_buttons = ButtonMatrixElement(
             rows=[[self._with_shift(button) for button in self._scene_launch_buttons_raw]])
+
+        self._loop_in_button = make_on_off_button(0, 93, name=u'Loop_In_Button')
+        self._loop_out_button = make_on_off_button(0, 102, name=u'Loop_Out_Button')
 
     def _create_bank_toggle(self):
         self._bank_toggle = BankToggleComponent(is_enabled=False, layer=Layer(bank_toggle_button=self._bank_button))
@@ -219,11 +222,11 @@ class APC40_MkII_Dennis(APC, OptimizedControlSurface):
                                              layer=Layer(shift_button=self._shift_button, play_button=self._play_button,
                                                          stop_button=ComboElement(self._play_button,
                                                                                   modifiers=[self._shift_button]),
-                                                         record_button=self._record_button,
+                                                         # record_button=self._record_button,
                                                          metronome_button=self._metronome_button,
                                                          tap_tempo_button=self._tap_tempo_button,
-                                                         nudge_down_button=self._nudge_down_button,
-                                                         nudge_up_button=self._nudge_up_button,
+                                                         # nudge_down_button=self._nudge_down_button,
+                                                         # nudge_up_button=self._nudge_up_button,
                                                          tempo_encoder=self._tempo_control),
                                              play_toggle_model_transform=lambda v: v)
 
@@ -249,14 +252,6 @@ class APC40_MkII_Dennis(APC, OptimizedControlSurface):
         self._quantization_selection = QuantizationComponent(name=u'Quantization_Selection', is_enabled=False,
                                                              layer=Layer(
                                                                  quantization_buttons=self._quantization_buttons))
-
-    def _create_recording(self):
-        record_button = MultiElement(self._session_record_button, self._foot_pedal_button.single_press)
-        self._session_recording = SessionRecordingComponent(ClipCreator(), self._view_control,
-                                                            name=u'Session_Recording', is_enabled=False,
-                                                            layer=Layer(new_button=self._foot_pedal_button.double_press,
-                                                                        record_button=record_button,
-                                                                        _uses_foot_pedal=self._foot_pedal_button))
 
     def get_matrix_button(self, column, row):
         return self._matrix_rows_raw[row][column]
